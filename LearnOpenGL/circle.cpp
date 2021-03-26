@@ -2,40 +2,38 @@
 #include <iostream>
 using namespace std;
 //窗口长宽
-int width = 400, height = 400;
+int width = 1400, height = 400;
 //鼠标点击位置
-int hit_pos_x, hit_pos_y;
+int hit_pos_x = width / 2, hit_pos_y = height / 2;
 //鼠标拖动位置
 int move_pos_x, move_pos_y;
 //鼠标操作种类
 int button_kind = -1;
 //鼠标动作处理
-bool move1 = false;
 
-int subnum = 10;
+//int subnum = 10;
+int select_point = -1;
 
-void DrawLineFunc(float num)    //画线
+//存放选中物体的缓冲的尺寸
+#define SIZE 500
+
+//选中区域的尺寸
+#define N 50
+
+void DrawLineFunc(float num, int x, int y)    //画线
 {
 	if (num == 0)return; int r = 80;
 	float radio = 360.0f / num;
 	for (int i = 1; i <= num; i++)
 	{
 		float spe = i * radio;
+		glColor3f(0.0, 0.0, 1.0);
 		glBegin(GL_LINE_STRIP);
-		glVertex2i(hit_pos_x, hit_pos_y);
-		glVertex2i(hit_pos_x+ cos(i* radio*3.14 / 180)*r, hit_pos_y+sin(i*radio*3.14 / 180)*r);
+		glVertex2i(x, y);
+		glVertex2i(x + cos(i* radio*3.14 / 180)*r, y + sin(i*radio*3.14 / 180)*r);
 		//glVertex2i(-92 - i * 20, -75 + i * 10);
 		glEnd();
 	}
-	float pi = 3.1415926536;
-	int i = 0;
-	int n = 50;
-	glBegin(GL_POINTS);//圆1
-	for (i = 0; i < n; i++)
-	{
-		glVertex2f(hit_pos_x+ 10 * cos(2 * pi * i / n), hit_pos_y+ 10 * sin(2 * pi * i / n));
-	}
-	glEnd();
 	return;
 }
 
@@ -44,51 +42,37 @@ void reshape(int w, int h)
 	glViewport(0, 0, (GLsizei)w, (GLsizei)h);			 //为了选择一个更小的绘图区域，在窗口中定义一个像素矩形，将图像映射到这个矩形中
 	glMatrixMode(GL_PROJECTION);			  		 //指定哪一个矩阵是当前矩阵（GL_PROJECTION,对投影矩阵应用随后的矩阵操作）
 	glLoadIdentity();							  	 //将当前的用户坐标系的原点移到了屏幕中心：类似于一个复位操作  
-	gluOrtho2D(0.0, (GLdouble)w, (GLdouble)h, 0.0 );	 //将当前的可视空间设置为正投影空间,这个函数描述了一个平行修剪空间,意味着离观察者较远的对象看上去不会变小  
+	gluOrtho2D(0.0, (GLdouble)w, (GLdouble)h, 0.0);	 //将当前的可视空间设置为正投影空间,这个函数描述了一个平行修剪空间,意味着离观察者较远的对象看上去不会变小  
 }
-
-void display()
+void DrawLineCircle(int x, int y)
+{
+	int count;
+	int sections = 200;
+	GLfloat TWOPI = 2.0f * 3.14159f;
+	glBegin(GL_TRIANGLE_FAN);    //GL_LINE_STRIP空心
+	glVertex2f(x, y);
+	for (count = 0; count <= sections; count++)
+	{
+		glVertex2f(x + 20 * cos(count*TWOPI / sections), y + 20 * sin(count*TWOPI / sections));
+	}
+	glEnd();
+}
+void draw(GLenum mode)
 {
 	// 清除屏幕
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	//重新设置OpenGL窗口：原点位置为左上角，x轴从左到右，y轴从上到下，坐标值与像素坐标值相同
-	/*glViewport(0, 0, (GLsizei)width, (GLsizei)height);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	gluOrtho2D(0, width, height, 0);*/
-	if (move1)
+	const static GLfloat color_selected[] = { 1.0f,1.0f,0.0f };
+	const static GLfloat color_unselected[] = { 0.0f,0.0f,1.0f };
+	glPointSize(20);
+	for (int i = 0; i < 5; i++)
 	{
-		DrawLineFunc(7);
-		//move = false;
-	}
-	if (button_kind == 0)	//左键点击
-	{
-		//画一个蓝色的点
-		glPointSize(20);
-		glBegin(GL_POINTS);
-		glColor3f(0.0f, 0.0f, 1.0f);
-		glVertex2f(hit_pos_x, hit_pos_y);
-		glEnd();
-	}
-	else if (button_kind == 2)	//右键点击
-	{
-		//画一个绿色的点
-		glPointSize(20);
-		glBegin(GL_POINTS);
-		glColor3f(0.0f, 1.0f, 0.0f);
-		glVertex2f(hit_pos_x, hit_pos_y);
-		glEnd();
-	}
-	else if (button_kind == 3)	//鼠标拖动
-	{
-		//沿拖动轨迹画一条红色的线
-		glLineWidth(5);
-		glColor3f(1.0f, 0.0f, 0.0f);
-		glBegin(GL_LINES);
-		glVertex2f(hit_pos_x, hit_pos_y);
-		glVertex2f(move_pos_x, move_pos_y);
-		glEnd();
+		if (mode == GL_SELECT) glLoadName(i);
+		DrawLineFunc(7, 100 + i * 200, 200);
+		glColor3fv((select_point == i) ? color_selected : color_unselected);
+		DrawLineCircle(100 + i * 200, 200);
+		/*glBegin(GL_POINTS);
+		glVertex2f(i * 100, 200);
+		glEnd();*/
 	}
 
 	//双缓存交换缓存以显示图像
@@ -97,32 +81,71 @@ void display()
 	glutPostRedisplay();
 }
 
-void mouse_hit(int button, int state, int x, int y)       
+void processHits(GLint hits, GLuint buffer[])
+{
+	unsigned int i, j;
+	GLuint name;
+
+	//ptr = (GLuint*)buffer;
+	for (i = 0; i < hits; i++)
+	{
+		name = buffer[3 + i * 4];
+		select_point = name;//每个选中物体有占用名字栈中4个单位，第4个是物体名字的值
+		cout << "第" << name << "个点" << endl;
+	}
+}
+void display()
+{
+	glClear(GL_COLOR_BUFFER_BIT);
+	draw(GL_RENDER);
+	glFlush();
+}
+void mouse_hit(int button, int state, int x, int y)
 {
 	//鼠标操作种类赋值
 	button_kind = button;
 	//鼠标操作基本结构
-	switch (button)
+	GLuint selectBuffer[SIZE];//存放物体名称的栈
+	GLint hits;//存放被选中对象个数
+	GLint viewport[4];//存放可视区参数
+	if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON)//当鼠标左键按下时
 	{
-	case GLUT_LEFT_BUTTON:	//左键操作，也可为数字0
-		if (state == GLUT_DOWN)	//左键按下时
-		{
-			//记录按键位置                                        //按键位置
-			hit_pos_x = x;	
-			hit_pos_y = y;
-			move1 = true;
-		}
-		break;
-	case GLUT_RIGHT_BUTTON:	//右键操作，也可为数字1
-		if (state == GLUT_DOWN)	//右键按下时
-		{
-			//记录按键位置
-			hit_pos_x = x;
-			hit_pos_y = y;
-		}
-		break;
-	default:
-		break;
+		cout << "down" << endl;
+		glGetIntegerv(GL_VIEWPORT, viewport);//获取当前视口坐标参数
+		glSelectBuffer(SIZE, selectBuffer);//选择名称栈存放被选中的名称
+		glRenderMode(GL_SELECT);//设置当前为 选择模式
+
+		//初始化名称栈
+		glInitNames();
+		glPushName(0);
+
+		glMatrixMode(GL_PROJECTION);
+		glPushMatrix();
+		glLoadIdentity();
+
+		gluPickMatrix(x, viewport[3] - y, N, N, viewport);//创建用于选择的投影矩阵栈
+		gluOrtho2D(0, width, height, 0);//设置投影方式
+		draw(GL_SELECT);//绘制场景
+		glPopMatrix();
+		glFlush();
+		hits = glRenderMode(GL_RENDER);
+		glMatrixMode(GL_MODELVIEW);
+		if (hits > 0) processHits(hits, selectBuffer);
+
+		glutPostRedisplay();
+	}
+	if (state == GLUT_UP && button == GLUT_LEFT_BUTTON) //当鼠标左键抬起时
+	{
+
+		select_point = -1;
+		glRenderMode(GL_RENDER);
+		draw(GL_RENDER);
+		glutPostRedisplay();
+	}
+	if (GLUT_RIGHT_BUTTON&&state == GLUT_DOWN) //右键操作，也可为数字1,右键按下时
+	{
+		hit_pos_x = x;
+		hit_pos_y = y;
 	}
 }
 
@@ -145,7 +168,7 @@ void main(int argc, char** argv)
 	glutInitWindowSize(width, height);
 	//设置窗口位置：在屏幕左上角像素值(100,100)处
 	glutInitWindowPosition(100, 100);
-	glutInitWindowSize(400, 400);
+	glutInitWindowSize(1400, 400);
 	//设置窗口名称
 	glutCreateWindow("OpenGL");
 	//显示函数，display事件需要自行编写
