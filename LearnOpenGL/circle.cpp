@@ -1,8 +1,10 @@
 #include <GL/glut.h>
 #include <iostream>
+#include <vector>
+#include <string>
 using namespace std;
 //窗口长宽
-int width = 1400, height = 400;
+int width = 1500, height = 1000;
 //鼠标点击位置
 int hit_pos_x = width / 2, hit_pos_y = height / 2;
 //鼠标拖动位置
@@ -19,6 +21,33 @@ int select_point = -1;
 
 //选中区域的尺寸
 #define N 50
+vector<string> names = { "朝代","地点","人物","年号","书画","服饰","榜单","8","9","10","11","12","13" ,"14","15","16","17","18","19" };
+bool set = false;
+int SelectCount = 0;//名称栈内容
+void* bitmap_fonts[7] = {
+		GLUT_BITMAP_9_BY_15,
+		GLUT_BITMAP_8_BY_13,
+		GLUT_BITMAP_TIMES_ROMAN_10,
+		GLUT_BITMAP_TIMES_ROMAN_24,
+		GLUT_BITMAP_HELVETICA_10,
+		GLUT_BITMAP_HELVETICA_12,
+		GLUT_BITMAP_HELVETICA_18
+};
+void print_bitmap_string(void* font, const char* s)
+{
+	if (s && strlen(s)) {
+		while (*s) {
+			glutBitmapCharacter(font, *s);
+			s++;
+		}
+	}
+}
+int TextOut(float x, float y, const char* cstr)
+{
+	glRasterPos2f(x, y);
+	print_bitmap_string(bitmap_fonts[6], cstr);
+	return 1;
+}
 
 void DrawLineFunc(float num, int x, int y)    //画线
 {
@@ -27,7 +56,6 @@ void DrawLineFunc(float num, int x, int y)    //画线
 	for (int i = 1; i <= num; i++)
 	{
 		float spe = i * radio;
-		glColor3f(0.0, 0.0, 1.0);
 		glBegin(GL_LINE_STRIP);
 		glVertex2i(x, y);
 		glVertex2i(x + cos(i* radio*3.14 / 180)*r, y + sin(i*radio*3.14 / 180)*r);
@@ -44,10 +72,14 @@ void reshape(int w, int h)
 	glLoadIdentity();							  	 //将当前的用户坐标系的原点移到了屏幕中心：类似于一个复位操作  
 	gluOrtho2D(0.0, (GLdouble)w, (GLdouble)h, 0.0);	 //将当前的可视空间设置为正投影空间,这个函数描述了一个平行修剪空间,意味着离观察者较远的对象看上去不会变小  
 }
-void DrawLineCircle(int x, int y)
+void DrawLineCircle(int src_x, int src_y, int des_x, int des_y)
 {
 	int count;
 	int sections = 200;
+	int x = src_x;
+	int y = src_y;
+	/*x = x==des_x?des_x:src_x+(des_x-src_x)*0.1;
+	y = y==des_y?des_y:src_y+(des_y-src_y)*0.1;*/
 	GLfloat TWOPI = 2.0f * 3.14159f;
 	glBegin(GL_TRIANGLE_FAN);    //GL_LINE_STRIP空心
 	glVertex2f(x, y);
@@ -57,6 +89,7 @@ void DrawLineCircle(int x, int y)
 	}
 	glEnd();
 }
+
 void draw(GLenum mode)
 {
 	// 清除屏幕
@@ -64,15 +97,50 @@ void draw(GLenum mode)
 	const static GLfloat color_selected[] = { 1.0f,1.0f,0.0f };
 	const static GLfloat color_unselected[] = { 0.0f,0.0f,1.0f };
 	glPointSize(20);
-	for (int i = 0; i < 5; i++)
+	for (int i = 0; i < 7; i++)
 	{
-		if (mode == GL_SELECT) glLoadName(i);
-		DrawLineFunc(7, 100 + i * 200, 200);
+		if (mode == GL_SELECT)
+		{
+			glLoadName(i);
+			SelectCount = i;
+		}
+		//DrawLineFunc(7, 200+i * 200, 800);
 		glColor3fv((select_point == i) ? color_selected : color_unselected);
-		DrawLineCircle(100 + i * 200, 200);
+		if (select_point == i)
+		{
+			set = true;
+			DrawLineCircle(100 + i * 200, 800, width / 2, height / 2);
+			glColor3f(1.0, 1.0, 1.0);
+		}
+		else
+		{
+			//glLoadIdentity();
+			DrawLineCircle(100 + i * 200, 800, 100 + i * 200, 800);
+		}
+		TextOut(100 + i * 200, 850, "Hello");
 		/*glBegin(GL_POINTS);
-		glVertex2f(i * 100, 200);
+		glVertex2f(i * 100, 700);
 		glEnd();*/
+	}
+	if (set)
+	{
+		glColor3f(1.0, 1.0, 1.0);
+		DrawLineFunc(9, width / 2, height / 2);
+		if (mode == GL_SELECT)
+		{
+			glLoadName(++SelectCount);
+		}
+		DrawLineCircle(width / 2, height / 2, width / 2, height / 2);
+		for (int i = 0; i < 9; i++)                                        //画子集线条和圆
+		{
+			glPushMatrix();
+			glTranslatef(cos(i* (360 / 9)*3.14 / 180) * 80, sin(i*(360 / 9)*3.14 / 180) * 80, 0.0);
+			//glRotatef(1, 0, 0, 1);
+			glLoadName(++SelectCount);
+			DrawLineCircle(width / 2, height / 2, width / 2, height / 2);
+			glPopMatrix();
+		}
+
 	}
 
 	//双缓存交换缓存以显示图像
@@ -83,7 +151,7 @@ void draw(GLenum mode)
 
 void processHits(GLint hits, GLuint buffer[])
 {
-	unsigned int i, j;
+	unsigned int i;
 	GLuint name;
 
 	//ptr = (GLuint*)buffer;
@@ -91,7 +159,7 @@ void processHits(GLint hits, GLuint buffer[])
 	{
 		name = buffer[3 + i * 4];
 		select_point = name;//每个选中物体有占用名字栈中4个单位，第4个是物体名字的值
-		cout << "第" << name << "个点" << endl;
+		cout << names[name] << endl;
 	}
 }
 void display()
@@ -100,6 +168,8 @@ void display()
 	draw(GL_RENDER);
 	glFlush();
 }
+
+
 void mouse_hit(int button, int state, int x, int y)
 {
 	//鼠标操作种类赋值
@@ -136,7 +206,6 @@ void mouse_hit(int button, int state, int x, int y)
 	}
 	if (state == GLUT_UP && button == GLUT_LEFT_BUTTON) //当鼠标左键抬起时
 	{
-
 		select_point = -1;
 		glRenderMode(GL_RENDER);
 		draw(GL_RENDER);
@@ -149,14 +218,6 @@ void mouse_hit(int button, int state, int x, int y)
 	}
 }
 
-void mouse_move(int x, int y)
-{
-	//鼠标移动时操作种类设为3(0 1 2分别为左键、中键、右键)
-	button_kind = 3;
-	//记录拖动位置
-	move_pos_x = x;
-	move_pos_y = y;
-}
 
 void main(int argc, char** argv)
 {
@@ -168,7 +229,7 @@ void main(int argc, char** argv)
 	glutInitWindowSize(width, height);
 	//设置窗口位置：在屏幕左上角像素值(100,100)处
 	glutInitWindowPosition(100, 100);
-	glutInitWindowSize(1400, 400);
+	glutInitWindowSize(width, height);
 	//设置窗口名称
 	glutCreateWindow("OpenGL");
 	//显示函数，display事件需要自行编写
@@ -177,9 +238,6 @@ void main(int argc, char** argv)
 
 	//鼠标点击函数，mouse_hit事件需要自行编写
 	glutMouseFunc(mouse_hit);
-	//鼠标拖动函数，mouse_move事件需要自行编写
-	glutMotionFunc(mouse_move);
-
 	//重复循环GLUT事件
 	glutMainLoop();
 }
