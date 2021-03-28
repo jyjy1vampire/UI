@@ -20,10 +20,14 @@ int select_point = -1;
 #define SIZE 500
 
 //选中区域的尺寸
-#define N 50
-vector<string> names = { "朝代","地点","人物","年号","书画","服饰","榜单","8","9","10","11","12","13" ,"14","15","16","17","18","19" };
+#define N 30
+vector<string> names = { "朝代","地点","人物","年号","书画","服饰","榜单","8","9","10","11","12","13" ,"14","15","16","17","18","19","20","21","22","23","24","25","26","27" };
+vector<bool> nodes = { true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, false,false,false,false,false,false,false,false };
 bool set = false;
-int SelectCount = 0;//名称栈内容
+int SelectCount = 0;//名称栈id数
+static GLfloat spin = 0.0;
+bool subSelect = false;
+bool Nodestatus = false;
 void* bitmap_fonts[7] = {
 		GLUT_BITMAP_9_BY_15,
 		GLUT_BITMAP_8_BY_13,
@@ -49,9 +53,9 @@ int TextOut(float x, float y, const char* cstr)
 	return 1;
 }
 
-void DrawLineFunc(float num, int x, int y)    //画线
+void DrawLineFunc(float num, int x, int y, int length)    //画线
 {
-	if (num == 0)return; int r = 80;
+	if (num == 0)return; int r = length;
 	float radio = 360.0f / num;
 	for (int i = 1; i <= num; i++)
 	{
@@ -114,30 +118,50 @@ void draw(GLenum mode)
 		}
 		else
 		{
-			//glLoadIdentity();
 			DrawLineCircle(100 + i * 200, 800, 100 + i * 200, 800);
 		}
 		TextOut(100 + i * 200, 850, "Hello");
-		/*glBegin(GL_POINTS);
-		glVertex2f(i * 100, 700);
-		glEnd();*/
 	}
 	if (set)
 	{
 		glColor3f(1.0, 1.0, 1.0);
-		DrawLineFunc(9, width / 2, height / 2);
+
+		DrawLineFunc(9, width / 2, height / 2, 300);
 		if (mode == GL_SELECT)
 		{
 			glLoadName(++SelectCount);
 		}
 		DrawLineCircle(width / 2, height / 2, width / 2, height / 2);
+
 		for (int i = 0; i < 9; i++)                                        //画子集线条和圆
 		{
 			glPushMatrix();
-			glTranslatef(cos(i* (360 / 9)*3.14 / 180) * 80, sin(i*(360 / 9)*3.14 / 180) * 80, 0.0);
-			//glRotatef(1, 0, 0, 1);
+			glTranslatef(cos(i* (360 / 9)*3.14 / 180) * 300, sin(i*(360 / 9)*3.14 / 180) * 300, 0.0);
+			//glRotatef(5, 0, 0, 1);
+			//glRotatef(spin, 0, 0, 1);
 			glLoadName(++SelectCount);
 			DrawLineCircle(width / 2, height / 2, width / 2, height / 2);
+			glPopMatrix();
+		}
+	}
+	if (subSelect)
+	{
+		if (Nodestatus)
+		{
+			glMatrixMode(GL_PROJECTION_MATRIX);
+			glPushMatrix();
+			glTranslatef(hit_pos_x - width / 2, hit_pos_y - height / 2, 0);
+			DrawLineFunc(3, width / 2, height / 2, 100);
+			for (int i = 0; i < 3; i++)
+			{
+				glPushMatrix();
+				glTranslatef(cos(i* (360 / 3)*3.14 / 180) * 100, sin(i*(360 / 3)*3.14 / 180) * 100, 0.0);
+				//glRotatef(5, 0, 0, 1);
+				//glRotatef(spin, 0, 0, 1);
+				glLoadName(++SelectCount);
+				DrawLineCircle(width / 2, height / 2, width / 2, height / 2);
+				glPopMatrix();
+			}
 			glPopMatrix();
 		}
 
@@ -159,7 +183,17 @@ void processHits(GLint hits, GLuint buffer[])
 	{
 		name = buffer[3 + i * 4];
 		select_point = name;//每个选中物体有占用名字栈中4个单位，第4个是物体名字的值
-		cout << names[name] << endl;
+		try
+		{
+			cout << names[name] << endl;
+			if (nodes[name])
+				Nodestatus = true;
+			else
+				Nodestatus = false;
+		}
+		catch (int a) {
+			cout << "越界" << name << endl;
+		}
 	}
 }
 void display()
@@ -170,6 +204,21 @@ void display()
 }
 
 
+void spinDisplay()
+{
+	spin = spin + 1.0;
+	if (spin > 360.0)
+		spin = spin - 360;
+	glutPostRedisplay();
+}
+void mytime(int t)
+{
+	spin = spin + 1.0;
+	if (spin > 360.0)
+		spin = spin - 360;
+	glutPostRedisplay();
+	glutTimerFunc(15, mytime, 1);
+}
 void mouse_hit(int button, int state, int x, int y)
 {
 	//鼠标操作种类赋值
@@ -200,8 +249,19 @@ void mouse_hit(int button, int state, int x, int y)
 		glFlush();
 		hits = glRenderMode(GL_RENDER);
 		glMatrixMode(GL_MODELVIEW);
-		if (hits > 0) processHits(hits, selectBuffer);
+		if (hits > 0)
+		{
+			processHits(hits, selectBuffer);
+			if (set)
+			{
+				subSelect = true;
+				hit_pos_x = x;
+				hit_pos_y = y;
+			}
 
+			//glutIdleFunc(spinDisplay);
+			//glutTimerFunc(10, mytime, 1);
+		}
 		glutPostRedisplay();
 	}
 	if (state == GLUT_UP && button == GLUT_LEFT_BUTTON) //当鼠标左键抬起时
@@ -209,13 +269,11 @@ void mouse_hit(int button, int state, int x, int y)
 		select_point = -1;
 		glRenderMode(GL_RENDER);
 		draw(GL_RENDER);
+		glutIdleFunc(NULL);
+
 		glutPostRedisplay();
 	}
-	if (GLUT_RIGHT_BUTTON&&state == GLUT_DOWN) //右键操作，也可为数字1,右键按下时
-	{
-		hit_pos_x = x;
-		hit_pos_y = y;
-	}
+	\
 }
 
 
